@@ -1,6 +1,5 @@
 # coding: utf-8
 
-import datetime
 import requests
 import json
 
@@ -114,9 +113,8 @@ class SendGrid(object):
         return self.call('recipients', 'add', {"name": newsletter_name, "list": list_name})
 
     def add_schedule(self, newsletter_name, at=None, after=None):
-        timeformat = "%Y-%m-%d %H:%M:%S"
         if at:
-            d = dict(name=newsletter_name, at=at.strftime(timeformat))
+            d = dict(name=newsletter_name, at=at.isoformat())
         elif after:
             d = dict(name=newsletter_name, after=after)
         else:
