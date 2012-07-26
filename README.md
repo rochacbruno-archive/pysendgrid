@@ -116,8 +116,9 @@ sendgrid.add_schedule("teste3")
 
 * add multiple recipients in one request (bulk add)
 * calculate date to send (sendgrid does not support timezone)
+* implement delete methods
 * better docs
 * get some money from sendgrid
-* accept donations <paypal: rochacbruno@gmail.com>
+* accept donations (paypal: rochacbruno@gmail.com)
 
 
