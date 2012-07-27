@@ -1,7 +1,9 @@
 # coding: utf-8
 
 import requests
+import datetime
 import json
+import csv
 
 
 class SendGrid(object):
@@ -120,3 +122,92 @@ class SendGrid(object):
         else:
             d = dict(name=newsletter_name)
         return self.call('schedule', 'add', d)
+
+    def import_define_send(self,
+                           csv_path,  # name, email csv string (no header)
+                           newsletter_name,  # existing newsletter_name to be cloned
+                           list_prefix,  # prefix to be used to name newsletter and lists created
+                           interval=0,  # the first sending will be for how many recipients?
+                           interval_step=0,  # increase interval at step
+                           start_count=0,
+                           start_send_at=None,  # when to start the sending - datetime object?
+                           send_interval=1,  # interval in days
+                           keys=("name", "email")
+                           ):
+        # split csv recipients in groups, by defined interval and increasing
+        lists = {}
+        lists_send_date = {}
+        f = open(csv_path, 'r')
+        reader = csv.reader(f)
+        out = [dict(zip(keys, prop)) for prop in reader]
+        total = len(out)
+        send_interval = datetime.timedelta(days=send_interval)
+        if start_send_at:
+            day_start = start_send_at
+        else:
+            day_start = datetime.datetime.now() + send_interval
+        assert isinstance(day_start, datetime.datetime), "start_send_at must be datetime"
+        if not interval:
+            interval = 500
+        if not interval_step:
+            interval_step = 200
+        for i in xrange(total):
+            if start_count < interval:
+                l = lists.setdefault(str(day_start.isoformat()), [])
+                lists_send_date.setdefault(str(day_start.isoformat()), day_start)
+                l.append(out[i])
+                start_count += 1
+            else:
+                day_start += send_interval
+                interval += interval_step
+                start_count = 0
+                l = lists.setdefault(str(day_start.isoformat()), [])
+                lists_send_date.setdefault(str(day_start.isoformat()), day_start)
+                l.append(out[i])
+
+        # create a list for each group of recipients
+        list_names = lists.keys()
+        for list_name in list_names:
+            print "Creating list %s" % list_name
+            print self.add_list(list_prefix + "_" + list_name), list_name
+
+        # clone the newsletter for each froup of recipients
+        for list_name in list_names:
+            print "Cloning newsletter %s in to %s" % (newsletter_name, list_prefix + "_" + list_name)
+            print self.clone_newsletter(newsletter_name, list_prefix + "_" + list_name)
+
+        # add recipients to each created list
+        already_included = []
+        # reads the status file
+        try:
+            with open(list_prefix + "_status.txt", 'r') as status:
+                for line in status:
+                    d = json.loads(line)
+                    already_included.append(d['email'])
+        except:
+            pass  # first time, no need to read
+
+        # call the api for each recipient
+        for list_name, recipients in lists.items():
+            for i, recipient in enumerate(recipients):
+                if not recipient['email'] in already_included:
+                    try:
+                        print list_name, i, recipient['email'], self.add_email_to(list_prefix + "_" + list_name, **recipient)
+                        with open(list_prefix + "_status.txt", 'a') as status:
+                            msg = json.dumps(recipient) + "\n"
+                            status.write(msg)
+                    except Exception, e:
+                        with open(list_prefix + "_error.txt", 'a') as error:
+                            print str(e)
+                            error.write(str(e) + str(datetime.datetime.now()))
+
+        # add each list to respective newsletter
+        for list_name in list_names:
+            print "adding list %s to newsletter %s" % (list_name, list_prefix + "_" + list_name)
+            print self.add_recipients(list_prefix + "_" + list_name, list_prefix + "_" + list_name)
+
+        # scheduling the sending for the respective date
+        for list_name in list_names:
+            print "Schedulling sending for %s" % list_prefix + "_" + list_name
+            date_to_send = lists_send_date[list_name]
+            print self.add_schedule(list_prefix + "_" + list_name, at=date_to_send)

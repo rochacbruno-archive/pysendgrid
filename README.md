@@ -110,6 +110,27 @@ sendgrid.add_schedule("teste3")
 
 {u'message': u'success'}
 
+# send a cloned newsletter to a list (.csv) of recipients
+# day by day, starting with 200 and increasing 200 each day
+# very useful for ISP warming
+
+# it will take a csv, with no header and in format name,email@domain.com
+# will split the csv in to lists starting by 200 and increasing by 200
+# exemple:
+# my_awesome_list_1: 200 recipients
+# my_awesome_list_2: 400 recipients
+# my_awesome_list_3: 600 recipients
+
+sendgrid.import_define_send("/path/to/csv_file.csv",
+                           "newsletter_to_be_cloned",
+                           "My_awesome_name_prefix",
+                           interval=200,
+                           interval_step=200,
+                           start_send_at=datetime.datetime(2012, 7, 29, 18, 9, 0, 798133)
+	                       )
+ 
+# will print statuses and stores text file logs
+# TODO: use sqlite and DAL for status?
 ```
 
 # TODO
