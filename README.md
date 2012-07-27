@@ -145,11 +145,6 @@ sendgrid.import_define_send("/path/to/csv_file.csv",
 * better docs
 * better exception handling
 * Map all Newsletter API methods
-* Retry for call method
 * pack and distribute, send to PyPi
-* Change the call method return, should be a pattern of tuple (status, error, json)
 * Tests
 * Import from excel file
-* add_emails_to should have a time.sleep before the return (time for sendgrid to update recipient list)
-
-

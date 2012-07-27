@@ -1,7 +1,9 @@
 # coding: utf-8
 
+from retry import retry_on_exceptions
 import requests
 import datetime
+import time
 import json
 import csv
 
@@ -50,15 +52,21 @@ class SendGrid(object):
         except KeyError:
             raise("url not found for %s api and %s resource" % (api, resource))
 
+    @retry_on_exceptions(types=[Exception], tries=5, sleep=30)
     def call(self, api, resource, params=None):
         url = self.build_url(api, resource)
         call_params = self.build_params(params or {})
-        request = requests.post(url, params=call_params)
-        print request.url
-        if request.status_code == 200:
-            return json.loads(request.content)
+        response = requests.post(url, params=call_params)
+
+        if response.status_code == 200:
+            parser = json.loads
         else:
-            return request
+            parser = lambda x: x
+
+        return dict(success=True,
+                    status_code=response.status_code,
+                    url=response.url,
+                    response=parser(response.content))
 
     def get_newsletter(self, name):
         return self.call('newsletter', 'get', {"name": name})
@@ -69,7 +77,7 @@ class SendGrid(object):
     def add_newsletter(self, name, subject, html, text=None, identity=None):
         if not identity:
             try:
-                identity = self.list_identity()[0]['identity']
+                identity = self.list_identity()['response'][0]['identity']
             except Exception:
                 raise("You have to inform the identity name")
         text = text or html  # TODO: clean HTML tags
@@ -120,7 +128,17 @@ class SendGrid(object):
         return self.call('email', 'get', dict(list=list_name, **fields))
 
     def add_recipients(self, newsletter_name, list_name):
-        return self.call('recipients', 'add', {"name": newsletter_name, "list": list_name})
+        times = 10
+        while times:
+            print "trying to add recipient: %s" % times
+            api_call = self.call('recipients', 'add', {"name": newsletter_name, "list": list_name})
+            if 'error' in api_call['response']:
+                if 'without recipients' in api_call['response']['error']:
+                    times -= 1
+                    time.sleep(30)
+            else:
+                times = 0
+        return api_call
 
     def add_schedule(self, newsletter_name, at=None, after=None):
         if at:
