@@ -149,17 +149,17 @@ class SendGrid(object):
             d = dict(name=newsletter_name)
         return self.call('schedule', 'add', d)
 
-    def import_define_send(self,
-                           csv_path,  # name, email csv string (no header)
-                           newsletter_name,  # existing newsletter_name to be cloned
-                           list_prefix,  # prefix to be used to name newsletter and lists created
-                           interval=0,  # the first sending will be for how many recipients?
-                           interval_step=0,  # increase interval at step
-                           start_count=0,
-                           start_send_at=None,  # when to start the sending - datetime object?
-                           send_interval=1,  # interval in days
-                           keys=("name", "email")
-                           ):
+    def warm_up_from_csv(self,
+                        csv_path,  # name, email csv string (no header)
+                        newsletter_name,  # existing newsletter_name to be cloned
+                        list_prefix,  # prefix to be used to name newsletter and lists created
+                        interval=0,  # the first sending will be for how many recipients?
+                        interval_step=0,  # increase interval at step
+                        start_count=0,
+                        start_send_at=None,  # when to start the sending - datetime object?
+                        send_interval=1,  # interval in days
+                        keys=("name", "email")
+                        ):
         # split csv recipients in groups, by defined interval and increasing
         lists = {}
         lists_send_date = {}

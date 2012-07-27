@@ -141,7 +141,7 @@ sendgrid.add_schedule("teste3")
 # my_awesome_list_2: 400 recipients
 # my_awesome_list_3: 600 recipients
 
-sendgrid.import_define_send("/path/to/csv_file.csv",
+sendgrid.warm_up_from_csv("/path/to/csv_file.csv",
                            "newsletter_to_be_cloned",
                            "My_awesome_name_prefix",
                            interval=200,
