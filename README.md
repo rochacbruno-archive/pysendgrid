@@ -8,11 +8,26 @@ Requirements
 
 * json
 * requests
+* csv
 
 Features
 --------
 
-* Newsletter API
+## Sendgrid Newsletter API
+
+* Create a newsletter with name, subject and html body
+* Get a newsletter as json
+* Clone an existing newsletter for resending
+* Create recipient list
+* Get and search recipient lists
+* Add recipients (emails) in to recipient lists
+* Includes a recipient list in to a newsletter
+* Schedule a newsletter to be send imediatelly, with delay or at specific date
+* Get identities
+
+## Aditional features
+* Import recipients from CSV, clone a newsletter, split the list at given interval and sends the newsletter gradually to warm up the IP for ISPs 
+
 
 How to use
 ----------
@@ -148,3 +163,6 @@ sendgrid.import_define_send("/path/to/csv_file.csv",
 * pack and distribute, send to PyPi
 * Tests
 * Import from excel file
+
+# Contribs
+* retry_on_exceptions decorator copied from https://github.com/fjsj/retry_on_exceptions/
