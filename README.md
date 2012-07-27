@@ -70,14 +70,19 @@ sendgrid.add_list("potential_customers")
 # Add emails (one by one) in to a recipient list
 # lista_name, recipent_data (must be a dict with name, email and aditional keys)
 
-people = [{"name": "John", "email": "jon@jon.com"}, {"name": "Mary", "email": "mary@mary.com"}, ...]
+person = {"name": "John", "email": "jon@jon.com"}
+sendgrid.add_email_to("potential_customers", **person)
 
-for person in people:
-    sendgrid.add_email_to("potential_customers", **person)
+{u'inserted': 1}
 
-{u'message': u'success'}
-{u'message': u'success'}
-...
+# add multiple emails in to a recipient list
+# list_name, list of recipients (a list of dicts)
+people = [{"name": "John", "email": "jon@jon.com"}, {"name": "Mary", "email": "mary@mary.com"}]
+
+sendgrid.add_emails_to("potential_customers", people)
+
+{u'inserted': 2}
+
 
 # Add a recipient list in to a newsletter
 # newsletter_name, list_name
@@ -95,7 +100,7 @@ sendgrid.add_schedule("teste3", after=30)
 {u'message': u'success'}
 
 # schedule a newsletter to be sent in a specific date
-3 newsletter_name, a datetime object
+# newsletter_name, a datetime object
 
 import datetime
 send_date = datetime.datetime(2012, 01, 01)
@@ -135,11 +140,16 @@ sendgrid.import_define_send("/path/to/csv_file.csv",
 
 # TODO
 
-* add multiple recipients in one request (bulk add)
 * calculate date to send (sendgrid does not support timezone)
 * implement delete methods
 * better docs
-* get some money from sendgrid
-* accept donations (paypal: rochacbruno@gmail.com)
+* better exception handling
+* Map all Newsletter API methods
+* Retry for call method
+* pack and distribute, send to PyPi
+* Change the call method return, should be a pattern of tuple (status, error, json)
+* Tests
+* Import from excel file
+* add_emails_to should have a time.sleep before the return (time for sendgrid to update recipient list)
 
 

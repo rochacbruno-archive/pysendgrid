@@ -53,7 +53,8 @@ class SendGrid(object):
     def call(self, api, resource, params=None):
         url = self.build_url(api, resource)
         call_params = self.build_params(params or {})
-        request = requests.get(url, params=call_params)
+        request = requests.post(url, params=call_params)
+        print request.url
         if request.status_code == 200:
             return json.loads(request.content)
         else:
@@ -106,7 +107,14 @@ class SendGrid(object):
         return self.call('email', 'add', dict(list=list_name, data=data))
 
     def add_emails_to(self, list_name, emails):
-        pass
+        """adds a list of emails
+        [{'email': 'jon@jon.com', 'name': 'Jon'}, {'email': 'mary@mary.com', 'name': 'Mary'}]
+        """
+        #email_data = []
+        for i, email in enumerate(emails):
+            emails[i] = json.dumps(email)
+        #data = json.dumps(email_data)
+        return self.call('email', 'add', dict(list=list_name, data=emails))
 
     def get_email(self, list_name, **fields):
         return self.call('email', 'get', dict(list=list_name, **fields))
