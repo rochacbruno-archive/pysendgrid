@@ -141,12 +141,15 @@ sendgrid.add_schedule("teste3")
 # my_awesome_list_2: 400 recipients
 # my_awesome_list_3: 600 recipients
 
+# calculate dates by your own
+# damm SendGrid does not support timezone
+send_at = datetime.datetime(2012, 7, 30) + datetime.timedelta(hours=14)
 sendgrid.warm_up_from_csv("/path/to/csv_file.csv",
                            "newsletter_to_be_cloned",
                            "My_awesome_name_prefix",
                            interval=200,
                            interval_step=200,
-                           start_send_at=datetime.datetime(2012, 7, 29, 18, 9, 0, 798133)
+                           start_send_at=send_at
 	                       )
  
 # will print statuses and stores text file logs

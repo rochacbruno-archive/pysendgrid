@@ -6,6 +6,7 @@ import datetime
 import time
 import json
 import csv
+import re
 
 
 class SendGrid(object):
@@ -58,15 +59,18 @@ class SendGrid(object):
         call_params = self.build_params(params or {})
         response = requests.post(url, params=call_params)
 
-        if response.status_code == 200:
-            parser = json.loads
-        else:
-            parser = lambda x: x
+        try:
+            response_content = json.loads(response.content)
+        except ValueError:
+            response_content = {'error': re.search(r'<title>([^<]+)</title>', response.content).group(1)}
+
+        with open("sendgrid.log", "a") as sendgridlog:
+            sendgridlog.write(str(response_content) + " at " + datetime.datetime.now().isoformat() + "\n")
 
         return dict(success=True,
                     status_code=response.status_code,
                     url=response.url,
-                    response=parser(response.content))
+                    response=response_content)
 
     def get_newsletter(self, name):
         return self.call('newsletter', 'get', {"name": name})
@@ -89,7 +93,7 @@ class SendGrid(object):
         return self.call('newsletter', 'add', d)
 
     def clone_newsletter(self, existing_name, new_name):
-        existing = self.get_newsletter(existing_name)
+        existing = self.get_newsletter(existing_name)['response']
         if isinstance(existing, dict):
             new = self.add_newsletter(
                 name=new_name,
@@ -134,8 +138,8 @@ class SendGrid(object):
             api_call = self.call('recipients', 'add', {"name": newsletter_name, "list": list_name})
             if 'error' in api_call['response']:
                 if 'without recipients' in api_call['response']['error']:
-                    times -= 1
                     time.sleep(30)
+                times -= 1
             else:
                 times = 0
         return api_call
@@ -156,20 +160,47 @@ class SendGrid(object):
                         interval=0,  # the first sending will be for how many recipients?
                         interval_step=0,  # increase interval at step
                         start_count=0,
-                        start_send_at=None,  # when to start the sending - datetime object?
+                        start_send_at=None,  # when to start the sending - datetime object?,
+                        start_send_after=None,  # count to start send
                         send_interval=1,  # interval in days
-                        keys=("name", "email")
+                        keys=("name", "email"),
+                        chunk_size=50
                         ):
+        """
+        Example:
+        sg = SendGrid(...., ....)
+        # calculate dates by your own
+        # damm SendGrid does not support timezone
+        send_at = datetime.datetime(2012, 7, 30) + datetime.timedelta(hours=14)
+        l = sg.warm_up_from_csv("myelails.csv",
+                           "mynewsletter",
+                           "my_sending",
+                           interval=500,
+                           interval_step=200,
+                           start_send_at=send_at,
+                           keys=("name", "email", "referer"),
+                           chunk_size=50
+                        )
+        """
+        # chuck size > 50 leads in to URL too large error
+        assert chunk_size <= 50, "Maximum size for chunk is 50"
+        # date
+        assert any([start_send_at, start_send_after]), "Needs to define even start date or after in minutes"
         # split csv recipients in groups, by defined interval and increasing
         lists = {}
         lists_send_date = {}
         f = open(csv_path, 'r')
         reader = csv.reader(f)
         out = [dict(zip(keys, prop)) for prop in reader]
+        # TODO
+        # remove invalid email addresses
+        # remove duplicates
         total = len(out)
         send_interval = datetime.timedelta(days=send_interval)
         if start_send_at:
             day_start = start_send_at
+        elif start_send_after:
+            day_start = datetime.datetime.now() + datetime.timedelta(minutes=start_send_after)
         else:
             day_start = datetime.datetime.now() + send_interval
         assert isinstance(day_start, datetime.datetime), "start_send_at must be datetime"
@@ -184,48 +215,68 @@ class SendGrid(object):
                 l.append(out[i])
                 start_count += 1
             else:
-                day_start += send_interval
-                interval += interval_step
-                start_count = 0
+                # day_start += send_interval
+                # interval += interval_step
+                # start_count = 0
                 l = lists.setdefault(str(day_start.isoformat()), [])
                 lists_send_date.setdefault(str(day_start.isoformat()), day_start)
                 l.append(out[i])
+                day_start += send_interval
+                interval += interval_step
+                start_count = 0
+
+        list_names = lists.keys()
 
         # create a list for each group of recipients
-        list_names = lists.keys()
         for list_name in list_names:
             print "Creating list %s" % list_name
             print self.add_list(list_prefix + "_" + list_name), list_name
 
-        # clone the newsletter for each froup of recipients
+        # clone the newsletter for each group of recipients
         for list_name in list_names:
             print "Cloning newsletter %s in to %s" % (newsletter_name, list_prefix + "_" + list_name)
             print self.clone_newsletter(newsletter_name, list_prefix + "_" + list_name)
 
-        # add recipients to each created list
-        already_included = []
-        # reads the status file
-        try:
-            with open(list_prefix + "_status.txt", 'r') as status:
-                for line in status:
-                    d = json.loads(line)
-                    already_included.append(d['email'])
-        except:
-            pass  # first time, no need to read
+        # # add recipients to each created list
+        # already_included = []
+        # # reads the status file
+        # try:
+        #     with open(list_prefix + "_status.txt", 'r') as status:
+        #         for line in status:
+        #             d = json.loads(line)
+        #             already_included.append(d['email'])
+        # except:
+        #     pass  # first time, no need to read
 
         # call the api for each recipient
+        # for list_name, recipients in lists.items():
+        #     for i, recipient in enumerate(recipients):
+        #         if not recipient['email'] in already_included:
+        #             try:
+        #                 print list_name, i, recipient['email'], self.add_email_to(list_prefix + "_" + list_name, **recipient)
+        #                 with open(list_prefix + "_status.txt", 'a') as status:
+        #                     msg = json.dumps(recipient) + "\n"
+        #                     status.write(msg)
+        #             except Exception, e:
+        #                 with open(list_prefix + "_error.txt", 'a') as error:
+        #                     print str(e)
+        #                     error.write(str(e) + str(datetime.datetime.now()))
+
+        # call the api for chunks of 50 recipients (url limit)
         for list_name, recipients in lists.items():
-            for i, recipient in enumerate(recipients):
-                if not recipient['email'] in already_included:
-                    try:
-                        print list_name, i, recipient['email'], self.add_email_to(list_prefix + "_" + list_name, **recipient)
-                        with open(list_prefix + "_status.txt", 'a') as status:
-                            msg = json.dumps(recipient) + "\n"
-                            status.write(msg)
-                    except Exception, e:
-                        with open(list_prefix + "_error.txt", 'a') as error:
-                            print str(e)
-                            error.write(str(e) + str(datetime.datetime.now()))
+            # ensure each recipient is unique
+            # because dict is not hashable
+            for i, item in enumerate(recipients):
+                item['index'] = i
+            # split recipient list in chunks of 500 items
+            starts = [recipients.index(item) for item in recipients[0::chunk_size]]
+            for start in starts:
+                try:
+                    end = starts[starts.index(start) + 1]
+                except IndexError:
+                    end = len(recipients)
+                recipient_chunk = recipients[start:end]
+                print self.add_emails_to(list_prefix + "_" + list_name, recipient_chunk)
 
         # add each list to respective newsletter
         for list_name in list_names:
@@ -237,3 +288,5 @@ class SendGrid(object):
             print "Schedulling sending for %s" % list_prefix + "_" + list_name
             date_to_send = lists_send_date[list_name]
             print self.add_schedule(list_prefix + "_" + list_name, at=date_to_send)
+
+        return (True, list_names, lists_send_date)
